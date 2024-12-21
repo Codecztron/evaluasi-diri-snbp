@@ -86,7 +86,7 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
 
 # --- Streamlit App ---
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
-st.write("by Codecztron")
+st.write("by Codecztron (Andri)")
 
 # Sidebar untuk input data
 st.sidebar.header("Input Data")
