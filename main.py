@@ -118,7 +118,7 @@ else:  # Input Manual
     st.sidebar.subheader("Input Manual Nilai Referensi SNBP")
     university = st.sidebar.text_input("Masukkan Nama Universitas (Opsional)")
     major = st.sidebar.text_input("Masukkan Nama Jurusan (Opsional)")
-    snbp_ref_manual = st.sidebar.number_input("Masukkan Nilai Referensi SNBP PTN tujuan", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
+    snbp_ref_manual = st.sidebar.number_input("Masukkan Nilai Referensi SNBP PTN tujuan / Target Nilai", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
     df = None
 
 # --- Main Content ---
