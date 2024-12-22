@@ -98,9 +98,9 @@ for i in range(num_semesters):
     grades.append(grade)
 
 st.sidebar.subheader("Pilihan Sumber Data")
-data_source = st.sidebar.radio("Pilih sumber data:", ("Database", "Input Manual"))
+data_source = st.sidebar.radio("Pilih sumber data:", ("Database (Coming soon)", "Input Manual"))
 
-if data_source == "Database":
+if data_source == "Database (Coming soon)":
     st.sidebar.subheader("Pilihan Universitas dan Jurusan")
     try:
         # Coba baca data.csv
@@ -137,7 +137,7 @@ st.write(f"**Rata-rata Nilai Rapor:** {average_grade:.2f}")
 st.subheader("Grafik Nilai Rapor")
 visualize_grades(grades)
 
-if data_source == "Database":
+if data_source == "Database (Coming soon)":
     # Periksa apakah variabel df, university, dan major terdefinisi
     if 'df' in locals() and 'university' in locals() and 'major' in locals():
         chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt = predict_chance(
