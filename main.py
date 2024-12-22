@@ -68,7 +68,7 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
         chance_snbt = (
             (accepted_snbt / total_applicants_snbt) * 100 if total_applicants_snbt > 0 else 0
         )
-    
+
         required_increase = None
         if average_grade < snbp_ref:
             required_increase = snbp_ref + 2 - average_grade
@@ -76,13 +76,12 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
         return chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt
 
     else:
-      
+
         required_increase = None
         if average_grade < snbp_ref_manual:
             required_increase = snbp_ref_manual + 2 - average_grade
 
         return None, None, required_increase, snbp_ref_manual, None, None, None, None, None
-        
 
 # --- Streamlit App ---
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
@@ -99,19 +98,28 @@ for i in range(num_semesters):
     grades.append(grade)
 
 st.sidebar.subheader("Pilihan Sumber Data")
-data_source = st.sidebar.radio("Pilih sumber data:", ("Database (Coming Soon)", "Input Manual"))
+data_source = st.sidebar.radio("Pilih sumber data:", ("Database", "Input Manual"))
 
-if data_source == "Database (Coming Soon)":
+if data_source == "Database":
     st.sidebar.subheader("Pilihan Universitas dan Jurusan")
     try:
-        df = pd.read_csv("data.csv")
+        # Coba baca data.csv
+        df = pd.read_csv("data/data.csv")
+
+        # Debugging: Tampilkan 5 baris pertama DataFrame
+        print(df.head())
+
         universities = df["UNIV"].unique()
         university = st.sidebar.selectbox("Pilih Universitas", universities)
 
         majors = df[df["UNIV"] == university]["JURUSAN"].unique()
         major = st.sidebar.selectbox("Pilih Jurusan", majors)
+
     except FileNotFoundError:
-        st.error("File database 'data.csv' tidak ditemukan. Pastikan file tersebut ada di server atau pilih 'Input Manual'.")
+        st.error("File database 'data.csv' tidak ditemukan. Pastikan file tersebut ada di direktori yang sama dengan aplikasi atau unggah ke repository GitHub Anda dan pilih 'Input Manual' untuk memasukkan data secara manual.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat membaca file 'data.csv': {e}. Pastikan format file CSV sudah benar.")
         st.stop()
 
 else:  # Input Manual
@@ -129,12 +137,13 @@ st.write(f"**Rata-rata Nilai Rapor:** {average_grade:.2f}")
 st.subheader("Grafik Nilai Rapor")
 visualize_grades(grades)
 
-if data_source == "Database (data.csv)":
+if data_source == "Database":
+    # Periksa apakah variabel df, university, dan major terdefinisi
     if 'df' in locals() and 'university' in locals() and 'major' in locals():
         chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt = predict_chance(
             df, university, major, average_grade
         )
-        
+
         st.subheader("Prediksi Peluang")
 
         if snbp_ref is not None:
@@ -163,37 +172,36 @@ if data_source == "Database (data.csv)":
             if required_increase is not None and average_grade < snbp_ref:
                 st.subheader("**Saran:**")
                 current_semester = len([g for g in grades if g > 0])
-    
+
                 if current_semester < 5:
                     st.write(f"Kamu saat ini berada di semester {current_semester}")
                     filled_grades = [grade for grade in grades if grade > 0]
                     current_sum = sum(filled_grades)
                     remaining_semesters = 5 - current_semester
-                    
+
                     # Faktor eksponensial
                     k = 0.5
-    
+
                     # Hitung total bobot
                     total_weight = sum(k**i for i in range(remaining_semesters))
-    
+
                     # Hitung peningkatan per semester dan target nilai per semester
                     increase_per_semester = []
-                    target_grades = [] 
+                    target_grades = []
                     current_average = average_grade
-    
+
                     for i in range(remaining_semesters):
                         increase = (required_increase * (k**i) / total_weight)
                         increase_per_semester.append(increase)
-                        
-                        
+
                         target_grade = current_average + increase_per_semester[i]
-                        
+
                         # Pastikan target nilai tidak melebihi 100
                         target_grade = min(target_grade, 100)
-                        
+
                         target_grades.append(target_grade)
                         current_average = target_grade
-                    
+
                     # Menampilkan saran nilai per semester
                     for i in range(remaining_semesters):
                         st.write(f"- Semester {current_semester + 1 + i}: Dapatkan nilai minimal **{target_grades[i]:.2f}**")
@@ -205,22 +213,24 @@ if data_source == "Database (data.csv)":
               st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
         else:
             st.write("Data universitas atau jurusan tidak ditemukan.")
+    else:
+      st.write("Silahkan lengkapi data di atas")
 
 elif data_source == "Input Manual":
-    
+
     chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt = predict_chance(
         df, university, major, average_grade, snbp_ref_manual
     )
-    
+
     st.subheader("Prediksi Peluang (Input Manual)")
     st.write(f"Nilai Referensi SNBP (Input Manual): **{snbp_ref:.2f}**")
     st.write(f"Nilai aman SNBP untuk jurusan ini: **{snbp_ref + 2:.2f}**")
     target_average = snbp_ref + 2
-    
+
     if required_increase is not None:
         st.subheader("**Saran:**")
         current_semester = len([g for g in grades if g > 0])
-        
+
         if current_semester < 5:
             st.write(f"Kamu saat ini berada di semester {current_semester}")
             filled_grades = [grade for grade in grades if grade > 0]
@@ -235,26 +245,25 @@ elif data_source == "Input Manual":
 
             # Hitung peningkatan per semester dan target nilai per semester
             increase_per_semester = []
-            target_grades = [] 
+            target_grades = []
             current_average = average_grade
 
             for i in range(remaining_semesters):
                 increase = (required_increase * (k**i) / total_weight)
                 increase_per_semester.append(increase)
-                
-                
+
                 target_grade = current_average + increase_per_semester[i]
-                
+
                 # Pastikan target nilai tidak melebihi 100
                 target_grade = min(target_grade, 100)
-                
+
                 target_grades.append(target_grade)
                 current_average = target_grade
-            
+
             # Menampilkan saran nilai per semester
             for i in range(remaining_semesters):
                 st.write(f"- Semester {current_semester + 1 + i}: Dapatkan nilai minimal **{target_grades[i]:.2f}**")
-                
+
         st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
     elif average_grade >= snbp_ref:
       st.write("**Selamat!** Nilai rata-rata rapormu sudah memenuhi syarat untuk mendaftar di jurusan ini. Pertahankan prestasimu!")
