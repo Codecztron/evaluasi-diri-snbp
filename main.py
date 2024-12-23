@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import re  # Import library re
 
 # Fungsi untuk menghitung rata-rata nilai rapor
 def calculate_average_grade(grades):
@@ -53,14 +54,31 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
         ]
 
         if filtered_df.empty:
-            return None, None, None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None, None, None, None, None
 
-        total_applicants_snbp = filtered_df["PENDAFTAR SNBP"].iloc[0]
-        accepted_snbp = filtered_df["KETERIMA SNBP"].iloc[0]
-        total_applicants_snbt = filtered_df["PENDAFTAR SNBT"].iloc[0]
-        accepted_snbt = filtered_df["KETERIMA SNBT"].iloc[0]
-        snbp_ref = filtered_df["SNBP"].iloc[0]
-        snbt_ref = filtered_df["SNBT"].iloc[0]
+        total_applicants_snbp = int(filtered_df["PENDAFTAR SNBP"].iloc[0]) if str(filtered_df["PENDAFTAR SNBP"].iloc[0]).isdigit() else 0
+        accepted_snbp = int(filtered_df["DITERIMA SNBP"].iloc[0]) if str(filtered_df["DITERIMA SNBP"].iloc[0]).isdigit() else 0
+        total_applicants_snbt = int(filtered_df["PENDAFTAR SNBT"].iloc[0]) if str(filtered_df["PENDAFTAR SNBT"].iloc[0]).isdigit() else 0
+        accepted_snbt = int(filtered_df["DITERIMA SNBT"].iloc[0]) if str(filtered_df["DITERIMA SNBT"].iloc[0]).isdigit() else 0
+        snbp_ref = float(filtered_df["SNBP"].iloc[0])
+        snbt_ref = float(filtered_df["SNBT"].iloc[0])
+
+        # Ekstrak nilai keketatan dan konversi menjadi float
+        keketatan_snbp_str = filtered_df["KEKETATAN SNBP"].iloc[0]
+        keketatan_snbt_str = filtered_df["KEKETATAN SNBT"].iloc[0]
+
+        def ratio_to_float(ratio_str):
+            match = re.match(r"(\d+):(\d+)", ratio_str)
+            if match:
+                try:
+                    return float(match.group(1)) / float(match.group(2))
+                except ZeroDivisionError:
+                    return 0.0  # Handle pembagian dengan 0
+            else:
+                return 0.0  # Handle format yang tidak sesuai
+
+        keketatan_snbp = ratio_to_float(keketatan_snbp_str)
+        keketatan_snbt = ratio_to_float(keketatan_snbt_str)
 
         chance_snbp = (
             (accepted_snbp / total_applicants_snbp) * 100 if total_applicants_snbp > 0 else 0
@@ -73,15 +91,14 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
         if average_grade < snbp_ref:
             required_increase = snbp_ref + 2 - average_grade
 
-        return chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt
+        return chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt, keketatan_snbp, keketatan_snbt
 
     else:
-
         required_increase = None
         if average_grade < snbp_ref_manual:
             required_increase = snbp_ref_manual + 2 - average_grade
 
-        return None, None, required_increase, snbp_ref_manual, None, None, None, None, None
+        return None, None, required_increase, snbp_ref_manual, None, None, None, None, None, None, None
 
 # --- Streamlit App ---
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
@@ -98,13 +115,17 @@ for i in range(num_semesters):
     grades.append(grade)
 
 st.sidebar.subheader("Pilihan Sumber Data")
-data_source = st.sidebar.radio("Pilih sumber data:", ("Database (Coming soon)", "Input Manual"))
+data_source = st.sidebar.radio("Pilih sumber data:", ("Database", "Input Manual"))
 
-if data_source == "Database (Coming soon)":
+if data_source == "Database":
     st.sidebar.subheader("Pilihan Universitas dan Jurusan")
     try:
-        # Coba baca data.csv
-        df = pd.read_csv("data/data.csv")
+        # Coba baca data.csv dengan konversi tipe data
+        df = pd.read_csv("data/data.csv", sep=";", thousands=".", decimal=",")
+        numeric_cols = ["PENDAFTAR SNBP", "DITERIMA SNBP", "PENDAFTAR SNBT", "DITERIMA SNBT", "SNBP", "SNBT"]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Debugging: Tampilkan 5 baris pertama DataFrame
         print(df.head())
@@ -137,14 +158,16 @@ st.write(f"**Rata-rata Nilai Rapor:** {average_grade:.2f}")
 st.subheader("Grafik Nilai Rapor")
 visualize_grades(grades)
 
-if data_source == "Database (Coming soon)":
+if data_source == "Database":
     # Periksa apakah variabel df, university, dan major terdefinisi
     if 'df' in locals() and 'university' in locals() and 'major' in locals():
-        chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt = predict_chance(
+        chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt, keketatan_snbp, keketatan_snbt = predict_chance(
             df, university, major, average_grade
         )
 
         st.subheader("Prediksi Peluang")
+        st.write("Source www.mykampus.id/")
+        st.write("Data berikut merupakan prediksi jadi tidak sepenuhnya benar, akan tetapi dapat di jadikan patokan untuk kedepannya")
 
         if snbp_ref is not None:
             st.write(f"Nilai SNBP: **{snbp_ref:.2f}**")
@@ -159,6 +182,7 @@ if data_source == "Database (Coming soon)":
                 "Peluang": [f"{chance_snbp:.2f}%", f"{chance_snbt:.2f}%"],
                 "Pendaftar": [total_applicants_snbp, total_applicants_snbt],
                 "Diterima": [accepted_snbp, accepted_snbt],
+                "Keketatan": [keketatan_snbp, keketatan_snbt],
             }
 
             # Membuat DataFrame dari data
@@ -209,7 +233,6 @@ if data_source == "Database (Coming soon)":
                 st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
             elif average_grade >= snbp_ref:
               st.write("**Selamat!** Nilai rata-rata rapormu sudah memenuhi syarat untuk mendaftar di jurusan ini. Pertahankan prestasimu!")
-              # Karena sudah memenuhi syarat, target_average tidak perlu diubah
               st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
         else:
             st.write("Data universitas atau jurusan tidak ditemukan.")
@@ -218,7 +241,7 @@ if data_source == "Database (Coming soon)":
 
 elif data_source == "Input Manual":
 
-    chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt = predict_chance(
+    chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt, keketatan_snbp, keketatan_snbt = predict_chance(
         df, university, major, average_grade, snbp_ref_manual
     )
 
@@ -267,7 +290,6 @@ elif data_source == "Input Manual":
         st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
     elif average_grade >= snbp_ref:
       st.write("**Selamat!** Nilai rata-rata rapormu sudah memenuhi syarat untuk mendaftar di jurusan ini. Pertahankan prestasimu!")
-      # Karena sudah memenuhi syarat, target_average tidak perlu diubah
       st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
 else:
     st.write("Silahkan lengkapi data di atas")
