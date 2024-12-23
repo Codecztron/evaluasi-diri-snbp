@@ -88,11 +88,10 @@ def safe_convert(value, target_type, default_value):
     except (ValueError, TypeError):
         return default_value
 
-# --- Streamlit App ---
+# --- Streamlit App --- 
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
 st.write("by Codecztron (Andri)")
-if st.button("Donate"):
-    webbrowser.open_new_tab("https://saweria.co/Codecztron")
+st.markdown("Jika aplikasi ini bermanfaat, Anda dapat memberikan dukungan dengan [Donasi via Saweria](https://saweria.co/Codecztron) :heart:")
 
 
 # Sidebar untuk input data
