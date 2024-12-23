@@ -91,7 +91,7 @@ def safe_convert(value, target_type, default_value):
 # --- Streamlit App --- 
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
 st.write("by Codecztron (Andri)")
-st.markdown("Jika aplikasi ini bermanfaat, Anda dapat memberikan dukungan dengan [Donasi via Saweria](https://saweria.co/Codecztron) :heart:")
+st.markdown("Jika aplikasi ini bermanfaat, Anda dapat memberikan dukungan dengan [Donasi via Saweria](https://saweria.co/Codecztron)")
 
 
 # Sidebar untuk input data
