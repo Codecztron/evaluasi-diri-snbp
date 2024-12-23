@@ -1,28 +1,18 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import re  # Import library re
+import webbrowser
+import re
 
 # Fungsi untuk menghitung rata-rata nilai rapor
 def calculate_average_grade(grades):
-    """Menghitung rata-rata nilai rapor.
-
-    Args:
-      grades: List nilai rapor per semester.
-
-    Returns:
-      Rata-rata nilai rapor.
-    """
+    """Menghitung rata-rata nilai rapor."""
     filled_grades = [grade for grade in grades if grade > 0]
     return sum(filled_grades) / len(filled_grades) if len(filled_grades) > 0 else 0
 
 # Fungsi untuk memvisualisasikan grafik nilai rapor
 def visualize_grades(grades):
-    """Memvisualisasikan grafik nilai rapor.
-
-    Args:
-      grades: List nilai rapor per semester.
-    """
+    """Memvisualisasikan grafik nilai rapor."""
     semesters = range(1, len(grades) + 1)
     plt.figure()
     plt.plot(semesters, grades, marker='o')
@@ -36,17 +26,6 @@ def visualize_grades(grades):
 def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
     """
     Memprediksi peluang masuk berdasarkan data CSV atau input manual.
-
-    Args:
-      df: DataFrame yang berisi data CSV (opsional).
-      university: Universitas yang dipilih.
-      major: Jurusan yang dipilih.
-      average_grade: Nilai rata-rata rapor.
-      snbp_ref_manual: Nilai referensi SNBP manual (opsional).
-
-    Returns:
-      Persentase peluang masuk SNBP dan SNBT, dan saran jika nilai kurang.
-      Jika menggunakan input manual, hanya mengembalikan saran.
     """
     if df is not None:
         filtered_df = df[
@@ -56,26 +35,27 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
         if filtered_df.empty:
             return None, None, None, None, None, None, None, None, None, None, None
 
-        total_applicants_snbp = int(filtered_df["PENDAFTAR SNBP"].iloc[0]) if str(filtered_df["PENDAFTAR SNBP"].iloc[0]).isdigit() else 0
-        accepted_snbp = int(filtered_df["DITERIMA SNBP"].iloc[0]) if str(filtered_df["DITERIMA SNBP"].iloc[0]).isdigit() else 0
-        total_applicants_snbt = int(filtered_df["PENDAFTAR SNBT"].iloc[0]) if str(filtered_df["PENDAFTAR SNBT"].iloc[0]).isdigit() else 0
-        accepted_snbt = int(filtered_df["DITERIMA SNBT"].iloc[0]) if str(filtered_df["DITERIMA SNBT"].iloc[0]).isdigit() else 0
-        snbp_ref = float(filtered_df["SNBP"].iloc[0])
-        snbt_ref = float(filtered_df["SNBT"].iloc[0])
+        # Handle potential missing or non-numeric values gracefully
+        total_applicants_snbp = safe_convert(filtered_df["PENDAFTAR SNBP"].iloc[0], int, 0)
+        accepted_snbp = safe_convert(filtered_df["DITERIMA SNBP"].iloc[0], int, 0)
+        total_applicants_snbt = safe_convert(filtered_df["PENDAFTAR SNBT"].iloc[0], int, 0)
+        accepted_snbt = safe_convert(filtered_df["DITERIMA SNBT"].iloc[0], int, 0)
+        snbp_ref = safe_convert(filtered_df["SNBP"].iloc[0], float, 0.0)
+        snbt_ref = safe_convert(filtered_df["SNBT"].iloc[0], float, 0.0)
 
         # Ekstrak nilai keketatan dan konversi menjadi float
-        keketatan_snbp_str = filtered_df["KEKETATAN SNBP"].iloc[0]
-        keketatan_snbt_str = filtered_df["KEKETATAN SNBT"].iloc[0]
-
+        keketatan_snbp_str = filtered_df["KEKETATAN SNBP"].iloc[0] if "KEKETATAN SNBP" in filtered_df.columns else "0:0"
+        keketatan_snbt_str = filtered_df["KEKETATAN SNBT"].iloc[0] if "KEKETATAN SNBT" in filtered_df.columns else "0:0"
+        
         def ratio_to_float(ratio_str):
             match = re.match(r"(\d+):(\d+)", ratio_str)
             if match:
                 try:
                     return float(match.group(1)) / float(match.group(2))
                 except ZeroDivisionError:
-                    return 0.0  # Handle pembagian dengan 0
+                    return 0.0
             else:
-                return 0.0  # Handle format yang tidak sesuai
+                return 0.0
 
         keketatan_snbp = ratio_to_float(keketatan_snbp_str)
         keketatan_snbt = ratio_to_float(keketatan_snbt_str)
@@ -100,9 +80,20 @@ def predict_chance(df, university, major, average_grade, snbp_ref_manual=None):
 
         return None, None, required_increase, snbp_ref_manual, None, None, None, None, None, None, None
 
+# Helper function for safe type conversion
+def safe_convert(value, target_type, default_value):
+    """Converts a value to a target type, returning a default value on failure."""
+    try:
+        return target_type(value)
+    except (ValueError, TypeError):
+        return default_value
+
 # --- Streamlit App ---
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
 st.write("by Codecztron (Andri)")
+if st.button("Donate me"):
+    webbrowser.open_new_tab("https://saweria.co/Codecztron")
+
 
 # Sidebar untuk input data
 st.sidebar.header("Input Data")
@@ -120,15 +111,15 @@ data_source = st.sidebar.radio("Pilih sumber data:", ("Database", "Input Manual"
 if data_source == "Database":
     st.sidebar.subheader("Pilihan Universitas dan Jurusan")
     try:
-        # Coba baca data.csv dengan konversi tipe data
+        # Coba baca data.csv
         df = pd.read_csv("data/data.csv", sep=";", thousands=".", decimal=",")
-        numeric_cols = ["PENDAFTAR SNBP", "DITERIMA SNBP", "PENDAFTAR SNBT", "DITERIMA SNBT", "SNBP", "SNBT"]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Debugging: Tampilkan 5 baris pertama DataFrame
-        print(df.head())
+        # Handle potential missing columns
+        required_columns = ["UNIV", "JURUSAN", "PENDAFTAR SNBP", "DITERIMA SNBP", "PENDAFTAR SNBT", "DITERIMA SNBT", "SNBP", "SNBT"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"File 'data.csv' tidak memiliki kolom yang diperlukan: {', '.join(missing_columns)}. Pastikan format file CSV sudah benar atau gunakan opsi 'Input Manual'.")
+            st.stop()
 
         universities = df["UNIV"].unique()
         university = st.sidebar.selectbox("Pilih Universitas", universities)
@@ -159,23 +150,24 @@ st.subheader("Grafik Nilai Rapor")
 visualize_grades(grades)
 
 if data_source == "Database":
-    # Periksa apakah variabel df, university, dan major terdefinisi
     if 'df' in locals() and 'university' in locals() and 'major' in locals():
         chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt, keketatan_snbp, keketatan_snbt = predict_chance(
             df, university, major, average_grade
         )
 
         st.subheader("Prediksi Peluang")
-        st.write("Source www.mykampus.id/")
-        st.write("Data berikut merupakan prediksi jadi tidak sepenuhnya benar, akan tetapi dapat di jadikan patokan untuk kedepannya")
+        st.write("Source www.mykampus.id")
+        st.write("Data berikut diambil pada tahun 2022-2024, dan pasti setiap tahun pasti mengalami kenaikan.")
+        st.write("Semoga bisa menjadi patokan nilai untuk kedepannya.")
+
 
         if snbp_ref is not None:
-            st.write(f"Nilai SNBP: **{snbp_ref:.2f}**")
-            st.write(f"Nilai aman SNBP untuk jurusan ini: **{snbp_ref + 2:.2f}**")
+            st.write(f"**Nilai** SNBP: **{snbp_ref:.2f}**")
+            st.write(f"**Nilai** aman SNBP untuk jurusan ini: **{snbp_ref + 2:.2f}**")
         if snbt_ref is not None:
-            st.write(f"Nilai SNBT: **{snbt_ref:.2f}**")
+            st.write(f"**Nilai** SNBT: **{snbt_ref:.2f}**")
 
-        # Menampilkan tabel dengan format yang lebih baik
+        # Menampilkan tabel
         if chance_snbp is not None and chance_snbt is not None:
             data = {
                 "Jalur": ["SNBP", "SNBT"],
@@ -184,11 +176,7 @@ if data_source == "Database":
                 "Diterima": [accepted_snbp, accepted_snbt],
                 "Keketatan": [keketatan_snbp, keketatan_snbt],
             }
-
-            # Membuat DataFrame dari data
             df_table = pd.DataFrame(data)
-
-            # Menampilkan tabel menggunakan st.dataframe() untuk tampilan yang lebih rapi
             st.dataframe(df_table.set_index('Jalur'))
 
             target_average = snbp_ref + 2
@@ -196,37 +184,22 @@ if data_source == "Database":
             if required_increase is not None and average_grade < snbp_ref:
                 st.subheader("**Saran:**")
                 current_semester = len([g for g in grades if g > 0])
-
                 if current_semester < 5:
                     st.write(f"Kamu saat ini berada di semester {current_semester}")
-                    filled_grades = [grade for grade in grades if grade > 0]
-                    current_sum = sum(filled_grades)
                     remaining_semesters = 5 - current_semester
-
-                    # Faktor eksponensial
                     k = 0.5
-
-                    # Hitung total bobot
                     total_weight = sum(k**i for i in range(remaining_semesters))
-
-                    # Hitung peningkatan per semester dan target nilai per semester
                     increase_per_semester = []
                     target_grades = []
                     current_average = average_grade
 
                     for i in range(remaining_semesters):
                         increase = (required_increase * (k**i) / total_weight)
+                        target_grade = min(current_average + increase, 100)
                         increase_per_semester.append(increase)
-
-                        target_grade = current_average + increase_per_semester[i]
-
-                        # Pastikan target nilai tidak melebihi 100
-                        target_grade = min(target_grade, 100)
-
                         target_grades.append(target_grade)
                         current_average = target_grade
 
-                    # Menampilkan saran nilai per semester
                     for i in range(remaining_semesters):
                         st.write(f"- Semester {current_semester + 1 + i}: Dapatkan nilai minimal **{target_grades[i]:.2f}**")
 
@@ -237,18 +210,23 @@ if data_source == "Database":
         else:
             st.write("Data universitas atau jurusan tidak ditemukan.")
     else:
-      st.write("Silahkan lengkapi data di atas")
+        st.write("Silahkan lengkapi data di atas")
 
 elif data_source == "Input Manual":
-
     chance_snbp, chance_snbt, required_increase, snbp_ref, snbt_ref, total_applicants_snbp, accepted_snbp, total_applicants_snbt, accepted_snbt, keketatan_snbp, keketatan_snbt = predict_chance(
         df, university, major, average_grade, snbp_ref_manual
     )
 
     st.subheader("Prediksi Peluang (Input Manual)")
-    st.write(f"Nilai Referensi SNBP (Input Manual): **{snbp_ref:.2f}**")
-    st.write(f"Nilai aman SNBP untuk jurusan ini: **{snbp_ref + 2:.2f}**")
-    target_average = snbp_ref + 2
+
+    if snbp_ref is not None:
+      st.write(f"Nilai Referensi SNBP (Input Manual): **{snbp_ref:.2f}**")
+      st.write(f"Nilai aman SNBP untuk jurusan ini: **{snbp_ref + 2:.2f}**")
+      target_average = snbp_ref + 2
+    else:
+      target_average = 0.0
+      st.write("Nilai Referensi SNBP (Input Manual): **Tidak diisi**")
+      st.write(f"Nilai aman SNBP untuk jurusan ini: **Tidak diisi**")
 
     if required_increase is not None:
         st.subheader("**Saran:**")
@@ -256,40 +234,26 @@ elif data_source == "Input Manual":
 
         if current_semester < 5:
             st.write(f"Kamu saat ini berada di semester {current_semester}")
-            filled_grades = [grade for grade in grades if grade > 0]
-            current_sum = sum(filled_grades)
             remaining_semesters = 5 - current_semester
-
-            # Faktor eksponensial
             k = 0.5
-
-            # Hitung total bobot
             total_weight = sum(k**i for i in range(remaining_semesters))
-
-            # Hitung peningkatan per semester dan target nilai per semester
             increase_per_semester = []
             target_grades = []
             current_average = average_grade
 
             for i in range(remaining_semesters):
                 increase = (required_increase * (k**i) / total_weight)
+                target_grade = min(current_average + increase, 100)
                 increase_per_semester.append(increase)
-
-                target_grade = current_average + increase_per_semester[i]
-
-                # Pastikan target nilai tidak melebihi 100
-                target_grade = min(target_grade, 100)
-
                 target_grades.append(target_grade)
                 current_average = target_grade
-
-            # Menampilkan saran nilai per semester
             for i in range(remaining_semesters):
                 st.write(f"- Semester {current_semester + 1 + i}: Dapatkan nilai minimal **{target_grades[i]:.2f}**")
-
         st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
+
     elif average_grade >= snbp_ref:
       st.write("**Selamat!** Nilai rata-rata rapormu sudah memenuhi syarat untuk mendaftar di jurusan ini. Pertahankan prestasimu!")
       st.write(f"Target nilai aman untuk masuk jurusan ini adalah **{target_average:.2f}**")
+    
 else:
     st.write("Silahkan lengkapi data di atas")
