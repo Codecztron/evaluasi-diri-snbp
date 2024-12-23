@@ -91,7 +91,7 @@ def safe_convert(value, target_type, default_value):
 # --- Streamlit App ---
 st.title("Aplikasi Prediksi Peluang SNBP dan SNBT")
 st.write("by Codecztron (Andri)")
-if st.button("Donate me"):
+if st.button("Donate"):
     webbrowser.open_new_tab("https://saweria.co/Codecztron")
 
 
